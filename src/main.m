@@ -19,13 +19,7 @@ void print_help(char const *arg0)
     printf("\t add - append a sidebar item to the end of the list\n");
     //printf("\t\tinsert <name> <uri> [before]\t- insert a sidebar item at the start of the list, or before the given name\n");
     printf("\t remove - remove a sidebar item\n");
-    printf("\t version - display the version\n");
     printf("\n");
-}
-
-void print_version(char const *arg0)
-{
-    printf("mysides v");
 }
 
 // Find shared file list item by its display name
@@ -67,13 +61,13 @@ int sidebar_add(NSString *name, NSURL *uri, id after)
 int sidebar_remove(NSString *name, NSURL *uri)
 {
     LSSharedFileListRef sflRef = LSSharedFileListCreate(kCFAllocatorDefault, kLSSharedFileListFavoriteItems, NULL);
+    
     if (!sflRef) {
         printf("Unable to create sidebar list, LSSharedFileListCreate() fails.");
         return 2;
     }
     
     UInt32 seed;
-    // Grab list snapshot for enumeration
     NSArray *list = CFBridgingRelease(LSSharedFileListCopySnapshot(sflRef, &seed));
     
     if ([[name lowercaseString] isEqualToString: @"all"]) {
@@ -87,8 +81,7 @@ int sidebar_remove(NSString *name, NSURL *uri)
         for(NSObject *obj in list)  {
             LSSharedFileListItemRef sflItemRef = (__bridge LSSharedFileListItemRef)obj;
             CFStringRef nameRef = LSSharedFileListItemCopyDisplayName(sflItemRef);
-            CFURLRef urlRef = NULL;
-            LSSharedFileListItemResolve(sflItemRef, kLSSharedFileListNoUserInteraction | kLSSharedFileListDoNotMountVolumes, &urlRef, NULL);
+            CFURLRef urlRef = LSSharedFileListItemCopyResolvedURL(sflItemRef, 0, NULL);
             
             // Found item: remove
             if (CFStringCompare(nameRef, (__bridge CFStringRef)name, 0) == 0) {
@@ -97,11 +90,11 @@ int sidebar_remove(NSString *name, NSURL *uri)
                 printf("Removed sidebar item with name: %s\n", [(NSString *) CFBridgingRelease(nameRef) UTF8String]);
                 return 0;
             }
+            
             if (nameRef) CFRelease(nameRef);
+            if (urlRef) CFRelease(urlRef);
         }
     }
-    
-
     
     printf("Could not find sidebar item with display name: %s\n", [name UTF8String]);
     CFRelease(sflRef);
@@ -116,36 +109,35 @@ int sidebar_insert(NSString *name, NSURL *uri, id before)
 void sidebar_list()
 {
     LSSharedFileListRef sflRef = LSSharedFileListCreate(kCFAllocatorDefault, kLSSharedFileListFavoriteItems, NULL);
-    UInt32 seed;
     
-    if(!sflRef) {
+    if (!sflRef) {
         printf("No list!");
         return;
     }
     
-    // Grab list snapshot for enumeration
+    UInt32 seed;
     NSArray *list = CFBridgingRelease(LSSharedFileListCopySnapshot(sflRef, &seed));
     
-    for(NSObject *object in list) {
+    for (NSObject *object in list) {
         LSSharedFileListItemRef sflItemRef = (__bridge LSSharedFileListItemRef)object;
         CFStringRef nameRef = LSSharedFileListItemCopyDisplayName(sflItemRef);
-        CFURLRef urlRef = NULL;
-        // LSSharedFileListItemResolve(sflItemRef, kLSSharedFileListNoUserInteraction | kLSSharedFileListDoNotMountVolumes, &urlRef, NULL);
-        urlRef = LSSharedFileListItemCopyResolvedURL(sflItemRef, kLSSharedFileListNoUserInteraction | kLSSharedFileListDoNotMountVolumes, NULL);
+        CFURLRef urlRef = LSSharedFileListItemCopyResolvedURL(sflItemRef, 0, NULL);
         
         if (urlRef == NULL) {
-            printf("%s -> NOTFOUND\n",
+            printf("%s -> NOT FOUND \n",
                    [(NSString *) CFBridgingRelease(nameRef) UTF8String]);
         } else {
-            printf("%s -> %s\n",
-               [(NSString *) CFBridgingRelease(nameRef) UTF8String],
-               [(NSString *) CFBridgingRelease(CFURLGetString(urlRef)) UTF8String]);
+            printf("%s -> %s \n",
+                   [(NSString *) CFBridgingRelease(nameRef) UTF8String],
+                   [(NSString *) CFBridgingRelease(CFURLGetString(urlRef)) UTF8String]);
         }
+        
+        CFRelease(nameRef);
+        CFRelease(urlRef);
     }
     
     CFRelease(sflRef);
 }
-
 
 int main (int argc, char const *argv[])
 {
