@@ -166,6 +166,9 @@ int main (int argc, char const *argv[])
             
         }
         
+        printf("Unrecognised option \n");
+        return 1;
+        
         
     } else {
         print_help(argv[0]);
